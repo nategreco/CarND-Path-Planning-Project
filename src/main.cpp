@@ -207,8 +207,9 @@ int main() {
   int lane = 1;
   double lane_width = 4.0; // m
   double ref_vel = 0.0; // mph
+  double spd_lim = 49.5; // mph
   
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,
+  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&spd_lim,
                &map_waypoints_dy,&lane,&lane_width,&ref_vel](uWS::WebSocket<uWS::SERVER> ws,
                                                              char *data, size_t length,
                                                              uWS::OpCode opCode) {
@@ -258,7 +259,6 @@ int main() {
               bool lane_change = false;
               
               // Find reference velocity
-              double spd_lim = 49.5;
               for (int i = 0; i < sensor_fusion.size(); i++)
               {
                 // Check if car is in my lane
@@ -272,12 +272,18 @@ int main() {
 
                   check_car_s += ((double)prev_size * 0.02 * check_speed);
                   
-                  // Check if the cars going slower than 40 mph and we're within 30m
-                  if ((check_car_s > car_s) && 
-                      ((check_car_s - car_s) < 30) && 
-                      ((MPS_TO_MPH * check_speed) < 40))
+                  // Check if the car is closer than 30m
+                  if ((check_car_s > car_s) && ((check_car_s - car_s) < 30))
                   {
-                    lane_change = true;
+                    // Limit speed to leading vehicle
+                    spd_lim = check_speed;
+                    
+                    // Check if leading vehicle is slower than 40mph
+                    if ((MPS_TO_MPH * check_speed) < 40)
+                    {
+                      // Request lane change
+                      lane_change = true;
+                    }
                   }
                   
                   // Check if the car is closer than 25m
@@ -285,16 +291,19 @@ int main() {
                   {                       
                     // Flag that we're too close
                     too_close = true;
-                    spd_lim = check_speed;
                   }
                 }
               }
+          
+              // Reset speed limit
+              if (!lane_change && !too_close) spd_lim = 49.5;
               
               // Accel/Decel to maintain distance
               if (too_close)
               {
-                ref_vel -= 0.448;  // 10 m/s^2
-              } else if (ref_vel < spd_lim)
+                ref_vel -= 0.448;  // -10 m/s^2
+              }
+              else if (ref_vel < spd_lim)
               {
                 ref_vel += 0.224;  // 5 m/s^2
               }
@@ -322,7 +331,6 @@ int main() {
                       // Now check if 5m behind and 40m ahead is clear
                       if ((check_car_s > (car_s - 5.0)) && (check_car_s < (car_s + 40)))
                       {
-                        cout << "Car #" << j << " - d: " << sensor_fusion[j][6] << ", s: " << sensor_fusion[i][5] << endl;
                         clear_lanes[i] = false;
                       }
                     }
