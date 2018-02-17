@@ -10,6 +10,8 @@
 #include "json.hpp"
 #include "spline.h"
 
+#define MPS_TO_MPH 2.23694
+
 using namespace std;
 
 // for convenience
@@ -253,14 +255,14 @@ int main() {
               }
               
               bool too_close = false;
+              bool lane_change = false;
               
               // Find reference velocity
+              double spd_lim = 49.5;
               for (int i = 0; i < sensor_fusion.size(); i++)
               {
-                // Car is in my lane
+                // Check if car is in my lane
                 float d = sensor_fusion[i][6];
-                // Aaron's
-                //if (d < (2+4*lane+2) && d> (2+4*lane-2))
                 if (d < (lane_width * (lane + 1.0)) && d > (lane_width * lane) )
                 {
                   double vx = sensor_fusion[i][3];
@@ -269,30 +271,98 @@ int main() {
                   double check_car_s = sensor_fusion[i][5];
 
                   check_car_s += ((double)prev_size * 0.02 * check_speed);
-                  // Check s values greater than mine and s gap
-                  if ((check_car_s > car_s) && ((check_car_s - car_s) < 30))
+                  
+                  // Check if the cars going slower than 40 mph and we're within 30m
+                  if ((check_car_s > car_s) && 
+                      ((check_car_s - car_s) < 30) && 
+                      ((MPS_TO_MPH * check_speed) < 40))
                   {
-                    // Do some logic here, lower reference velocity so we dont' crash into car,
-                    // could also trigger lange change -> State machine?
-                    //ref_vel = 29.5; //mph
+                    lane_change = true;
+                  }
+                  
+                  // Check if the car is closer than 25m
+                  if ((check_car_s > car_s) && ((check_car_s - car_s) < 25))
+                  {                       
+                    // Flag that we're too close
                     too_close = true;
-                    if (lane > 0)
-                    {
-                      lane = 0;
-                    }
+                    spd_lim = check_speed;
                   }
                 }
               }
               
+              // Accel/Decel to maintain distance
               if (too_close)
               {
                 ref_vel -= 0.448;  // 10 m/s^2
-              } else if (ref_vel < 49.5)
+              } else if (ref_vel < spd_lim)
               {
-                ref_vel += 0.448;  // 10 m/s^2
+                ref_vel += 0.224;  // 5 m/s^2
               }
-              
-            
+          
+              // Pick a new lane once it's clear
+              if (lane_change) {
+                // Check which lanes are clear
+                bool clear_lanes[3];
+                for (int i = 0; i < 3; i++)
+                {
+                  clear_lanes[i] = true;
+                  for (int j = 0; j < sensor_fusion.size(); j++)
+                  {
+                    // Check if car is in lane
+                    float d = sensor_fusion[j][6];
+                    if ((d < lane_width * (i + 1.0)) && (d > lane_width * i))
+                    {
+                      double vx = sensor_fusion[j][3];
+                      double vy = sensor_fusion[j][4];
+                      double check_speed = sqrt(vx*vx + vy*vy);
+                      double check_car_s = sensor_fusion[j][5];
+
+                      check_car_s += ((double)prev_size * 0.02 * check_speed);
+
+                      // Now check if 5m behind and 40m ahead is clear
+                      if ((check_car_s > (car_s - 5.0)) && (check_car_s < (car_s + 40)))
+                      {
+                        cout << "Car #" << j << " - d: " << sensor_fusion[j][6] << ", s: " << sensor_fusion[i][5] << endl;
+                        clear_lanes[i] = false;
+                      }
+                    }
+                  }
+                }
+                
+                // Left lane, check if clear to switch to middle
+                if (lane == 0)
+                {
+                  if (clear_lanes[1])
+                  {
+                    lane = 1;
+                    lane_change = false;
+                  }
+                }
+                // Middle lane, check left first, then right
+                else if (lane == 1)
+                {
+                  if (clear_lanes[0])
+                  {
+                    lane = 0;
+                    lane_change = false;
+                  }
+                  else if (clear_lanes[2])
+                  {
+                    lane = 2;
+                    lane_change = false;
+                  }
+                }
+                // Right lane, check if clera to switch to middle
+                else if (lane == 2)
+                {
+                  if (clear_lanes[1])
+                  {
+                    lane = 1;
+                    lane_change = false;
+                  }
+                }
+              }
+
               // Create a list of widley spaced (x,y) waypoints, evenly spaced at 30m
               // later we will interpolate these waypoints with a spline and fill it
             
@@ -388,7 +458,7 @@ int main() {
               // 50 points
               for (int i = 0; i <= 50 - previous_path_x.size(); i++)
               {
-                double N = (target_dist / (0.02 * ref_vel / 2.24));
+                double N = (target_dist / (0.02 * ref_vel / MPS_TO_MPH));
                 double x_point = x_add_on + target_x / N;
                 double y_point = s(x_point);
                 
