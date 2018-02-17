@@ -272,22 +272,22 @@ int main() {
 
                   check_car_s += ((double)prev_size * 0.02 * check_speed);
                   
-                  // Check if the car is closer than 30m
-                  if ((check_car_s > car_s) && ((check_car_s - car_s) < 30))
+                  // Check if the car is closer than 40 m
+                  if ((check_car_s > car_s) && ((check_car_s - car_s) < 40))
                   {
                     // Limit speed to leading vehicle
-                    spd_lim = check_speed;
+                    spd_lim = MPS_TO_MPH * check_speed;
                     
-                    // Check if leading vehicle is slower than 40mph
-                    if ((MPS_TO_MPH * check_speed) < 40)
+                    // Check if leading vehicle is slower than 45 mph
+                    if ((MPS_TO_MPH * check_speed) < 45)
                     {
                       // Request lane change
                       lane_change = true;
                     }
                   }
                   
-                  // Check if the car is closer than 25m
-                  if ((check_car_s > car_s) && ((check_car_s - car_s) < 25))
+                  // Check if the car is closer than 25 m
+                  if ((check_car_s > car_s) && ((check_car_s - car_s) < 20))
                   {                       
                     // Flag that we're too close
                     too_close = true;
@@ -302,6 +302,10 @@ int main() {
               if (too_close)
               {
                 ref_vel -= 0.448;  // -10 m/s^2
+              }
+              else if (ref_vel > spd_lim)
+              {
+                ref_vel -= 0.224;  // -5 m/s^2
               }
               else if (ref_vel < spd_lim)
               {
@@ -485,26 +489,6 @@ int main() {
                 next_x_vals.push_back(x_point);
                 next_y_vals.push_back(y_point);
               }
-          
-
-              /*
-              // Earlier examples for simple behaviors
-              double dist_inc = 0.44704; // Translates to 50mph
-              for(int i = 0; i < 50; i++)
-              {
-                    //Follow lane
-                    double next_s = car_s + (i + 1) * dist_inc;
-                    double next_d = 6;
-                    vector<double> xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                    next_x_vals.push_back(xy[0]);
-                    next_y_vals.push_back(xy[1]);
-
-
-                    //Go straight
-                    //next_x_vals.push_back(car_x+(dist_inc*i)*cos(deg2rad(car_yaw)));
-                    //next_y_vals.push_back(car_y+(dist_inc*i)*sin(deg2rad(car_yaw)));
-              }
-              */
           
               json msgJson;
           
