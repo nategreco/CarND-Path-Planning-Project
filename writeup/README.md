@@ -25,7 +25,7 @@ The goals / steps of this project are the following:
 #### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.
 
 My project includes the following files:
-* [main.cpp](../src/main.cpp) main program that runs the IO server (given from starter code), makes lane change decisions, and creates trajectory
+* [main.cpp](../src/main.cpp) main program that runs the IO server, makes lane change decisions, and creates trajectory
 * [spline.h](../src/spline.h) header file for spline interpolation library
 * [recording.mp4](./recording.mp4) video of 5.72 miles travelling around the course without incident
 
@@ -37,16 +37,16 @@ In this project there are actually two different algorithms implemented.  The fi
 
 The simplicity of this project did not require a full implementation of a FSM with explicit state definitions, transition rules, etc., however it is still there.  Instead of FSM, the state of the vehicle and all the decision making criteria is done with a few booleans.  The model that is implemented now makes the following decisions:
 * Maintain 49.5 mph speed limit OR match speed to vehicle ahead
- * [Set new speed limit to leading vehicle speed](../src/main.cpp#L279)
- * [Reset vehicle speed to 49.5 mph if no obstructions](../src/main.cpp#L299)
+  * [Set new speed limit to leading vehicle speed](../src/main.cpp#L279)
+  * [Reset vehicle speed to 49.5 mph if no obstructions](../src/main.cpp#L299)
 * Request lane change if leading vehicle speed is slower than 45 mph
- * [Perform comparison of leading vehicle speed](../src/main.cpp#L281)
+  * [Perform comparison of leading vehicle speed](../src/main.cpp#L281)
 * If lane change is requested, evaluate which lanes are clear
- * [Perform comparison of leading vehicle speed](../src/main.cpp#L317)
+  * [Perform comparison of leading vehicle speed](../src/main.cpp#L317)
 * Initiate lane change when a viable lane is available
- * [Check if adjacent lane is open](../src/main.cpp#L344)
+  * [Check if adjacent lane is open](../src/main.cpp#L344)
 * Acelerate and decelerate at permissible values with a ramp function
- * [Ramp speed to maintain acceleration and jerk, with two different decleration profiles](../src/main.cpp#L301)
+  * [Ramp speed to maintain acceleration and jerk, with two different decleration profiles](../src/main.cpp#L301)
 
 Now, regarding the path planning trajectory, the specific request was to minimize jerk.  Jerk can be characterized by discontinuities in accereration, which are inherent from discontinuities velocity.  So by creating a smooth path profile, we guarantee no sudden movements.  Also, during a lane change, if we ensure our departure path from one lane is tangent to the lane we're exiting, and our entrance path to the new lane is tangent to the lane we are changing to, we can guarantee jerk is minimized.
 
